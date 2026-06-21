@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Amazon Image Checker</title>
+  <style>
+    /* ── Variables ──────────────────────────────────────────────────────── */
+    :root {
+      --ac:      #2563eb;       /* professional blue — no brand affiliation */
+      --ac-h:    #1d4ed8;
+      --pass:    #22c55e;
+      --pass-bg: #f0fdf4;
+      --pass-bd: #bbf7d0;
+      --fail:    #ef4444;
+      --fail-bg: #fef2f2;
+      --fail-bd: #fca5a5;
+      --fix-bg:  #fffbeb;
+      --fix-bd:  #fde68a;
+      --fix-c:   #78350f;
+      --text:    #111827;
+      --muted:   #6b7280;
+      --border:  #e5e7eb;
+      --bg:      #f8f9fa;
+      --card:    #ffffff;
+      --r-lg:    12px;
+      --r-md:    8px;
+      --r-sm:    6px;
+      --shadow:  0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    /* ── Reset ──────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 28px 16px 72px;
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    .hd { text-align: center; padding: 4px 0 8px; }
+
+    .amz-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #232f3e; color: #FF9900;
+      font-size: .72rem; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+      padding: 5px 13px; border-radius: 20px; margin-bottom: 14px;
+    }
+
+    .hd h1 {
+      font-size: 1.9rem; font-weight: 800;
+      letter-spacing: -.025em; margin-bottom: 8px;
+    }
+    .hd h1 em { color: var(--ac); font-style: normal; }
+    .hd p { color: var(--muted); font-size: .9rem; }
+
+    /* ── Card ───────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow);
+      padding: 22px 24px;
+    }
+
+    .clabel {
+      font-size: .72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin-bottom: 12px;
+    }
+
+    /* ── Drop Zone ──────────────────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px; padding: 44px 24px;
+      text-align: center; cursor: pointer;
+      transition: border-color .15s, background .15s;
+      user-select: none;
+    }
+    .drop-zone:hover, .drop-zone.over { border-color: var(--ac); background: #eff6ff; }
+
+    .drop-icon  { font-size: 2.8rem; display: block; margin-bottom: 12px; }
+    .drop-main  { font-size: .92rem; color: var(--text); font-weight: 500; }
+    .drop-main b { color: var(--ac); font-weight: 700; }
+    .drop-sub   { font-size: .78rem; color: var(--muted); margin-top: 5px; }
+
+    /* ── Preview ────────────────────────────────────────────────────────── */
+    .preview-wrap { display: flex; justify-content: center; margin-bottom: 12px; }
+
+    #preview-img {
+      max-height: 280px; max-width: 100%;
+      border-radius: var(--r-md); border: 1px solid var(--border);
+      object-fit: contain; background: #fafafa;
+    }
+
+    .file-meta {
+      text-align: center; font-size: .8rem;
+      color: var(--muted); margin-bottom: 18px;
+    }
+
+    /* ── Score Banner ───────────────────────────────────────────────────── */
+    .score-banner {
+      border-radius: 10px; padding: 18px 20px; margin-bottom: 18px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .score-banner.s-pass { background: var(--pass-bg); border: 1.5px solid var(--pass-bd); }
+    .score-banner.s-fail { background: var(--fail-bg); border: 1.5px solid var(--fail-bd); }
+    .score-banner.s-pend { background: #fffbeb;        border: 1.5px solid #fde68a; }
+
+    .score-ring {
+      flex-shrink: 0;
+      width: 56px; height: 56px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 800; line-height: 1;
+    }
+    .s-pass .score-ring { background: #dcfce7; color: #166534; }
+    .s-fail .score-ring { background: #fee2e2; color: #991b1b; }
+    .s-pend .score-ring { background: #fef3c7; color: #92400e; }
+
+    .score-text {}
+    .score-num { font-size: 1.45rem; font-weight: 800; line-height: 1; margin-bottom: 3px; }
+    .s-pass .score-num { color: var(--pass); }
+    .s-fail .score-num { color: var(--fail); }
+    .s-pend .score-num { color: #d97706;     }
+
+    .score-msg { font-size: .87rem; font-weight: 600; }
+    .s-pass .score-msg { color: #166534; }
+    .s-fail .score-msg { color: #991b1b; }
+    .s-pend .score-msg { color: #92400e; }
+
+    /* ── Section divider ────────────────────────────────────────────────── */
+    .section-divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 6px 0 14px;
+      font-size: .76rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+    }
+    .section-divider::before, .section-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── Check items ────────────────────────────────────────────────────── */
+    .checks { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
+
+    .ci {
+      display: flex; gap: 11px;
+      padding: 12px 14px; border-radius: 10px;
+    }
+    .ci.pass { background: var(--pass-bg); border: 1.5px solid var(--pass-bd); border-left: 4px solid var(--pass); }
+    .ci.fail { background: var(--fail-bg); border: 1.5px solid var(--fail-bd); border-left: 4px solid var(--fail); }
+
+    .ci-icon { flex-shrink: 0; font-size: .95rem; margin-top: 2px; }
+    .ci-body { flex: 1; }
+
+    .ci-label { font-size: .88rem; font-weight: 700; margin-bottom: 3px; }
+    .ci.pass .ci-label { color: #166534; }
+    .ci.fail .ci-label { color: #991b1b; }
+
+    .ci-reason { font-size: .8rem; color: var(--muted); line-height: 1.45; }
+
+    /* Fix tip — only shown on failed checks */
+    .ci-fix {
+      margin-top: 9px; padding: 9px 12px;
+      background: var(--fix-bg); border: 1px solid var(--fix-bd);
+      border-radius: var(--r-sm); font-size: .78rem;
+      color: var(--fix-c); line-height: 1.45;
+    }
+    .ci-fix-label {
+      font-weight: 700; margin-bottom: 2px; display: block;
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+    }
+
+    /* ── Manual checks ──────────────────────────────────────────────────── */
+    .manual-hint {
+      font-size: .8rem; color: var(--muted);
+      margin-bottom: 12px; line-height: 1.45;
+    }
+
+    .mc-item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 14px; border-radius: 10px;
+      background: #fffbeb; border: 1.5px solid #fde68a;
+      cursor: pointer; transition: background .15s, border-color .15s;
+      user-select: none;
+    }
+    .mc-item + .mc-item { margin-top: 9px; }
+    .mc-item:hover      { background: #fef3c7; }
+    .mc-item.checked    { background: var(--pass-bg); border-color: var(--pass-bd); }
+    .mc-item.checked:hover { background: #dcfce7; }
+
+    .mc-box {
+      width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px;
+      border: 2px solid var(--border); border-radius: 4px;
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      transition: background .15s, border-color .15s;
+    }
+    .mc-item.checked .mc-box { background: var(--pass); border-color: var(--pass); }
+
+    .mc-tick { display: none; color: #fff; font-size: 13px; font-weight: 700; line-height: 1; }
+    .mc-item.checked .mc-tick { display: block; }
+
+    .mc-body { flex: 1; }
+    .mc-label { font-size: .88rem; font-weight: 700; margin-bottom: 3px; color: #92400e; }
+    .mc-item.checked .mc-label { color: #166534; }
+    .mc-desc { font-size: .79rem; color: var(--muted); line-height: 1.45; margin-bottom: 0; }
+
+    /* Fix tip inside manual check (shown when unchecked) */
+    .mc-fix {
+      margin-top: 8px; padding: 8px 10px;
+      background: var(--fix-bg); border: 1px solid var(--fix-bd);
+      border-radius: var(--r-sm); font-size: .76rem;
+      color: var(--fix-c); line-height: 1.45;
+    }
+    .mc-fix-label {
+      font-weight: 700; margin-bottom: 2px; display: block;
+      font-size: .7rem; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .mc-item.checked .mc-fix { display: none; }
+
+    /* ── Actions ────────────────────────────────────────────────────────── */
+    .acts { display: flex; gap: 10px; margin-top: 4px; }
+
+    .btn-act {
+      flex: 1; padding: 11px 14px;
+      background: var(--card); color: var(--text);
+      border: 1.5px solid var(--border); border-radius: var(--r-md);
+      font-family: inherit; font-size: .88rem; font-weight: 600;
+      cursor: pointer; transition: border-color .15s, background .15s, color .15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-act:hover  { border-color: #9ca3af; background: var(--bg); }
+    .btn-act.copied { background: var(--pass-bg); border-color: var(--pass-bd); color: #166534; }
+
+    /* ── Toast ──────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(14px);
+      background: #1f2937; color: #fff;
+      padding: 10px 22px; border-radius: 24px;
+      font-size: .875rem; font-weight: 500;
+      opacity: 0; pointer-events: none;
+      transition: opacity .22s, transform .22s;
+      white-space: nowrap; z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 500px) {
+      .card { padding: 18px; }
+      .hd h1 { font-size: 1.55rem; }
+      .acts { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ── Header ────────────────────────────────────────────────────────── -->
+  <header class="hd">
+    <div class="amz-badge">📦 Amazon Compliance Tool</div>
+    <h1>Amazon Image <em>Checker</em></h1>
+    <p>5 automated pixel checks · 3 visual confirmations · no AI · no API · no cost</p>
+  </header>
+
+  <!-- ── Upload ────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="clabel">Product Image</div>
+    <div
+      class="drop-zone"
+      id="drop-zone"
+      onclick="document.getElementById('fi').click()"
+      ondragover="onOver(event)"
+      ondragleave="onLeave(event)"
+      ondrop="onDrop(event)"
+    >
+      <span class="drop-icon">🖼️</span>
+      <p class="drop-main"><b>Click to upload</b> or drag & drop</p>
+      <p class="drop-sub">JPG · PNG · WEBP · Max 10 MB · Analysis starts instantly</p>
+    </div>
+    <input type="file" id="fi" style="display:none"
+      accept="image/jpeg,image/png,image/webp"
+      onchange="onFileSel(event)">
+  </div>
+
+  <!-- ── Results ───────────────────────────────────────────────────────── -->
+  <div class="card hidden" id="res-card">
+
+    <div class="clabel">Preview</div>
+    <div class="preview-wrap">
+      <img id="preview-img" src="" alt="Product preview">
+    </div>
+    <div class="file-meta" id="file-meta"></div>
+
+    <!-- Score banner -->
+    <div class="score-banner s-pend" id="score-banner">
+      <div class="score-ring" id="score-ring">—</div>
+      <div class="score-text">
+        <div class="score-num" id="score-num">—</div>
+        <div class="score-msg" id="score-msg">Analyzing…</div>
+      </div>
+    </div>
+
+    <!-- Automated checks -->
+    <div class="clabel">🤖 Automated pixel analysis</div>
+    <div class="checks" id="auto-checks"></div>
+
+    <div class="section-divider">👁 Visual review required</div>
+
+    <p class="manual-hint">
+      The following checks require human judgment. Review the preview above
+      and tick each box to confirm the image meets the requirement.
+    </p>
+    <div id="manual-checks"></div>
+
+    <div class="acts">
+      <button class="btn-act" id="copy-btn" onclick="copyResult()">📋 Copy result</button>
+      <button class="btn-act" onclick="restart()">↺ Check another</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════════════════════════ */
+const CANVAS_PX = 640;   // max dimension for analysis canvas
+const W_SOFT    = 235;   // per-channel threshold: below = "product pixel"
+const W_HARD    = 242;   // stricter threshold for edge/border checks
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════════ */
+let autoResults = [];
+let manual = { no_text: false, no_props: false, photographic: false };
+let origW = 0, origH = 0;
+
+/* Manual check definitions — no external tool references */
+const MANUAL_DEFS = [
+  {
+    id:   'no_text',
+    label:'No text or watermarks',
+    desc: 'Confirm: no overlaid text, watermark, badge, price tag, award seal, or logo is superimposed on the image. Text printed directly on the product label or packaging is acceptable.',
+    fix:  'Remove any superimposed text, logo, or graphic overlay using the eraser, clone stamp, or content-aware fill tool in your image editor. Export a clean version of the image without overlays.',
+  },
+  {
+    id:   'no_props',
+    label:'No non-included accessories',
+    desc: 'Confirm: only the product (and accessories physically included in the box) appears in the frame. No lifestyle props, hands, or scene elements.',
+    fix:  'Reshoot the product on its own, or use your image editor to remove any props, hands, or background objects not included with the product. The frame should contain only what the customer will receive.',
+  },
+  {
+    id:   'photographic',
+    label:'Photographic image',
+    desc: 'Confirm: this is a real photograph or a photorealistic render — not an illustration, cartoon, flat vector design, or clearly artistic 3D render.',
+    fix:  'Replace with a real product photograph or a high-quality photorealistic CGI render. Illustrations, hand-drawn artwork, flat design graphics, and cartoon-style images are not permitted as Amazon main images.',
+  },
+];
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DRAG & DROP
+═══════════════════════════════════════════════════════════════════════ */
+function onOver(e)  { e.preventDefault(); document.getElementById('drop-zone').classList.add('over'); }
+function onLeave()  { document.getElementById('drop-zone').classList.remove('over'); }
+function onDrop(e)  { e.preventDefault(); document.getElementById('drop-zone').classList.remove('over'); const f = e.dataTransfer?.files?.[0]; if (f) handle(f); }
+function onFileSel(e){ const f = e.target.files?.[0]; if (f) handle(f); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FILE HANDLING
+═══════════════════════════════════════════════════════════════════════ */
+function handle(file) {
+  if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { toast('Upload JPG, PNG, or WEBP'); return; }
+  if (file.size > 10 * 1024 * 1024) { toast('File exceeds 10 MB'); return; }
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const url = ev.target.result;
+    const img = new Image();
+    img.onload = () => {
+      origW = img.naturalWidth;
+      origH = img.naturalHeight;
+
+      document.getElementById('preview-img').src = url;
+      document.getElementById('file-meta').textContent =
+        `${file.name} · ${origW}×${origH}px · ${(file.size/1024).toFixed(0)} KB`;
+
+      manual = { no_text: false, no_props: false, photographic: false };
+      runAnalysis(img);
+
+      document.getElementById('res-card').classList.remove('hidden');
+      setTimeout(() => document.getElementById('res-card').scrollIntoView({ behavior:'smooth', block:'start' }), 80);
+    };
+    img.src = url;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PIXEL ANALYSIS
+═══════════════════════════════════════════════════════════════════════ */
+
+function buildCanvas(img) {
+  const sc = Math.min(CANVAS_PX / img.naturalWidth, CANVAS_PX / img.naturalHeight, 1);
+  const w  = Math.round(img.naturalWidth * sc);
+  const h  = Math.round(img.naturalHeight * sc);
+  const c  = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+  return { px: ctx.getImageData(0, 0, w, h).data, w, h };
+}
+
+function productBBox(px, w, h) {
+  let x0=w, x1=0, y0=h, y1=0, found=false;
+  for (let y=0; y<h; y++) for (let x=0; x<w; x++) {
+    const i=(y*w+x)*4;
+    if (px[i]<W_SOFT||px[i+1]<W_SOFT||px[i+2]<W_SOFT) {
+      x0=Math.min(x0,x); x1=Math.max(x1,x);
+      y0=Math.min(y0,y); y1=Math.max(y1,y);
+      found=true;
+    }
+  }
+  return found ? {x0,y0,x1,y1} : null;
+}
+
+/* CHECK 1 — Background */
+function checkBg(px, w, h) {
+  const cx=Math.floor(w*.10), cy=Math.floor(h*.10);
+  const corners=[[0,0,cx,cy],[w-cx,0,w,cy],[0,h-cy,cx,h],[w-cx,h-cy,w,h]];
+  let total=0, white=0;
+  for (const [x0,y0,x1,y1] of corners)
+    for (let y=y0;y<y1;y++) for (let x=x0;x<x1;x++) {
+      const i=(y*w+x)*4; total++;
+      if (px[i]>=W_SOFT&&px[i+1]>=W_SOFT&&px[i+2]>=W_SOFT) white++;
+    }
+  const pct = white/total;
+  const pass = pct >= 0.97;
+  return {
+    pass,
+    reason: pass
+      ? `Corner sampling: ${(pct*100).toFixed(1)}% near-white — background appears pure white`
+      : `Corner sampling: only ${(pct*100).toFixed(1)}% near-white — background is off-white or colored`,
+    fix: 'Set the background to pure white (RGB 255, 255, 255). Use "Remove Background" in your image editor, then fill the transparent layer with solid white. Avoid off-white, cream, or light gray tones — Amazon requires exact white.',
+  };
+}
+
+/* CHECK 2 — Frame fill */
+function checkFill(px, w, h) {
+  const bb = productBBox(px, w, h);
+  if (!bb) return { pass:false, reason:'No product detected — image appears entirely white', fix:'Upload the actual product image. Ensure the product is visible against the white background.' };
+  const fillPct = ((bb.x1-bb.x0+1)/w) * ((bb.y1-bb.y0+1)/h);
+  const pass = fillPct >= 0.85;
+  return {
+    pass,
+    reason: pass
+      ? `Product bounding box covers ~${(fillPct*100).toFixed(1)}% of frame — meets ≥85% requirement`
+      : `Product covers only ~${(fillPct*100).toFixed(1)}% of frame — too much empty white space`,
+    fix: 'Crop the image tighter around the product, leaving minimal white space on all sides. Alternatively, zoom in closer when shooting. The product\'s bounding box should fill at least 85% of the image area.',
+  };
+}
+
+/* CHECK 3 — No borders */
+function checkBorder(px, w, h) {
+  const ring = Math.max(3, Math.floor(Math.min(w,h)*.009));
+  const edgePx = [];
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
+    if (x>=ring&&x<w-ring&&y>=ring&&y<h-ring) continue;
+    const i=(y*w+x)*4;
+    edgePx.push([px[i],px[i+1],px[i+2]]);
+  }
+  const nw = edgePx.filter(([r,g,b])=>r<W_HARD||g<W_HARD||b<W_HARD);
+  const nwPct = nw.length / edgePx.length;
+
+  if (nwPct < 0.05) return { pass:true, reason:'No decorative border detected at image edges' };
+
+  if (nw.length > 0) {
+    const ar=nw.reduce((s,c)=>s+c[0],0)/nw.length;
+    const ag=nw.reduce((s,c)=>s+c[1],0)/nw.length;
+    const ab=nw.reduce((s,c)=>s+c[2],0)/nw.length;
+    const variance=nw.reduce((s,[r,g,b])=>s+(r-ar)**2+(g-ag)**2+(b-ab)**2,0)/nw.length;
+    if (variance<500&&nwPct>=0.12) return {
+      pass: false,
+      reason: `Uniform non-white color at image edges (${(nwPct*100).toFixed(1)}% of border area) — likely a decorative border`,
+      fix:   'Remove the border or frame from your image. Check your editor\'s canvas settings, export options, and any layer styles (stroke, shadow on canvas). Export should have no border applied.',
+    };
+  }
+  return {
+    pass: false,
+    reason: `${(nwPct*100).toFixed(1)}% of edge pixels are non-white — possible border, shadow, or colored frame`,
+    fix:   'Check for any border, stroke, vignette, or shadow effect applied to the full image canvas. Remove it and re-export on a clean white background that reaches all four edges.',
+  };
+}
+
+/* CHECK 4 — Fully visible */
+function checkVisible(px, w, h) {
+  const M=2;
+  const nw=(x,y)=>{ const i=(y*w+x)*4; return px[i]<W_HARD||px[i+1]<W_HARD||px[i+2]<W_HARD; };
+  const sides=new Set();
+  for (let x=0;x<w;x++) for (let m=0;m<M;m++) {
+    if (nw(x,m))     sides.add('top');
+    if (nw(x,h-1-m)) sides.add('bottom');
+  }
+  for (let y=0;y<h;y++) for (let m=0;m<M;m++) {
+    if (nw(m,y))     sides.add('left');
+    if (nw(w-1-m,y)) sides.add('right');
+  }
+  const pass = sides.size===0;
+  return {
+    pass,
+    reason: pass
+      ? 'Product is fully contained within the image frame'
+      : `Product pixels detected at the ${[...sides].join(' & ')} edge — product may be cropped`,
+    fix: 'Expand the canvas to show the complete product, or reshoot with more space around the subject. No part of the product should touch or extend beyond the image boundary.',
+  };
+}
+
+/* CHECK 5 — Image quality */
+function checkQuality(px, w, h) {
+  const longer = Math.max(origW, origH);
+
+  if (longer < 500) return {
+    pass: false,
+    reason: `Too small: ${origW}×${origH}px — Amazon requires minimum 500px, strongly recommends 1000px+`,
+    fix:   'Use the original high-resolution source file. Amazon requires a minimum of 500px on the longest side, but 1000px is the minimum for zoom functionality and 2000px+ is recommended for best results.',
+  };
+
+  // Sharpness via mean absolute Laplacian on product pixels only
+  const gray = new Float32Array(w*h);
+  for (let i=0;i<w*h;i++) gray[i]=.299*px[i*4]+.587*px[i*4+1]+.114*px[i*4+2];
+
+  let lapSum=0, lapN=0;
+  for (let y=1;y<h-1;y+=2) for (let x=1;x<w-1;x+=2) {
+    if (gray[y*w+x]>=W_HARD) continue; // skip white background
+    lapSum+=Math.abs(-4*gray[y*w+x]+gray[(y-1)*w+x]+gray[(y+1)*w+x]+gray[y*w+x-1]+gray[y*w+x+1]);
+    lapN++;
+  }
+  const sharpness = lapN>20 ? lapSum/lapN : 99;
+  const dimOk     = longer >= 1000;
+  const sharpOk   = sharpness >= 3.5;
+  const pass       = dimOk && sharpOk;
+
+  let reason, fix;
+  if (!dimOk) {
+    reason = `${origW}×${origH}px — below the 1000px recommended minimum`;
+    fix    = 'Export from the original high-resolution source. Avoid upscaling low-resolution images. Aim for at least 1000px on the longest side; 2000px+ enables Amazon\'s zoom feature.';
+  } else if (!sharpOk) {
+    reason = `Image appears blurry (sharpness score: ${sharpness.toFixed(1)}) at ${origW}×${origH}px`;
+    fix    = 'Use the original uncompressed image file. Avoid re-saving JPEGs multiple times, which degrades quality. If the source image is blurry, reshoot with proper focus and adequate lighting.';
+  } else {
+    reason = `${origW}×${origH}px${longer>=2000 ? ' — excellent resolution for Amazon zoom' : ' — acceptable (2000px+ recommended for zoom)'}`;
+  }
+  return { pass, reason, fix };
+}
+
+/* ── Run all checks ─────────────────────────────────────────────────── */
+function runAnalysis(img) {
+  const { px, w, h } = buildCanvas(img);
+  autoResults = [
+    { id:'background',    label:'Pure white background',      ...checkBg(px,w,h)       },
+    { id:'frame_fill',    label:'Frame fill ≥85%',            ...checkFill(px,w,h)     },
+    { id:'no_borders',    label:'No borders or frames',       ...checkBorder(px,w,h)   },
+    { id:'fully_visible', label:'Product fully visible',      ...checkVisible(px,w,h)  },
+    { id:'image_quality', label:'Image quality & resolution', ...checkQuality(px,w,h)  },
+  ];
+  render();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════════════════════ */
+function render() {
+  renderAuto();
+  renderManual();
+  updateScore();
+}
+
+function renderAuto() {
+  const el = document.getElementById('auto-checks');
+  el.innerHTML = '';
+  autoResults.forEach(c => {
+    const div = document.createElement('div');
+    div.className = `ci ${c.pass ? 'pass' : 'fail'}`;
+    const fixBlock = (!c.pass && c.fix)
+      ? `<div class="ci-fix"><span class="ci-fix-label">💡 How to fix</span>${esc(c.fix)}</div>`
+      : '';
+    div.innerHTML = `
+      <span class="ci-icon">${c.pass ? '✅' : '❌'}</span>
+      <div class="ci-body">
+        <div class="ci-label">${esc(c.label)}</div>
+        <div class="ci-reason">${esc(c.reason)}</div>
+        ${fixBlock}
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function renderManual() {
+  const el = document.getElementById('manual-checks');
+  el.innerHTML = '';
+  MANUAL_DEFS.forEach(def => {
+    const checked = manual[def.id];
+    const div = document.createElement('div');
+    div.className = `mc-item${checked ? ' checked' : ''}`;
+    div.onclick = () => { manual[def.id] = !manual[def.id]; renderManual(); updateScore(); };
+    div.innerHTML = `
+      <div class="mc-box"><span class="mc-tick">✓</span></div>
+      <div class="mc-body">
+        <div class="mc-label">${esc(def.label)}</div>
+        <div class="mc-desc">${esc(def.desc)}</div>
+        <div class="mc-fix"><span class="mc-fix-label">💡 How to fix</span>${esc(def.fix)}</div>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+function updateScore() {
+  const autoPass   = autoResults.filter(c=>c.pass).length;
+  const manualPass = Object.values(manual).filter(Boolean).length;
+  const totalPass  = autoPass + manualPass;
+  const total      = autoResults.length + MANUAL_DEFS.length;
+  const failCount  = total - totalPass;
+  const allPassed  = failCount === 0;
+  const pending    = MANUAL_DEFS.some(d=>!manual[d.id]);
+
+  const cls = allPassed ? 's-pass' : (autoPass<autoResults.length) ? 's-fail' : 's-pend';
+  document.getElementById('score-banner').className = `score-banner ${cls}`;
+  document.getElementById('score-ring').textContent = `${totalPass}/${total}`;
+  document.getElementById('score-num').textContent  = `${totalPass} / ${total}`;
+
+  let msg;
+  if (allPassed) {
+    msg = 'All requirements confirmed — ready to list on Amazon.';
+  } else if (pending && autoPass === autoResults.length) {
+    const n = MANUAL_DEFS.filter(d=>!manual[d.id]).length;
+    msg = `${n} visual check${n!==1?'s':''} still need${n===1?'s':''} your confirmation above.`;
+  } else {
+    msg = `${failCount} requirement${failCount!==1?'s':''} not met — review the details below.`;
+  }
+  document.getElementById('score-msg').textContent = msg;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ACTIONS
+═══════════════════════════════════════════════════════════════════════ */
+function copyResult() {
+  const autoPass   = autoResults.filter(c=>c.pass).length;
+  const manualPass = Object.values(manual).filter(Boolean).length;
+  const totalPass  = autoPass + manualPass;
+  const total      = autoResults.length + MANUAL_DEFS.length;
+  const fails      = total - totalPass;
+
+  const lines = [`Amazon Image Check — ${totalPass}/${total} requirements met`];
+  if (fails > 0) {
+    lines.push('');
+    lines.push('Issues found:');
+    autoResults.filter(c=>!c.pass).forEach(c=>{
+      lines.push(`• ${c.label}: ${c.reason}`);
+    });
+    MANUAL_DEFS.filter(d=>!manual[d.id]).forEach(d=>{
+      lines.push(`• ${d.label}: requires visual confirmation`);
+    });
+  }
+
+  const txt = lines.join('\n');
+  const btn = document.getElementById('copy-btn');
+  const done = () => {
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent='📋 Copy result'; btn.classList.remove('copied'); }, 2200);
+  };
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(txt).then(done);
+  } else {
+    const ta = Object.assign(document.createElement('textarea'), { value:txt, style:'position:fixed;opacity:0;top:0;left:0' });
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    done();
+  }
+}
+
+function restart() {
+  autoResults = [];
+  manual = { no_text:false, no_props:false, photographic:false };
+  document.getElementById('preview-img').src = '';
+  document.getElementById('file-meta').textContent = '';
+  document.getElementById('res-card').classList.add('hidden');
+  document.getElementById('fi').value = '';
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════════════════════════════ */
+let _tt;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_tt); _tt = setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+</script>
+</body>
+</html>
